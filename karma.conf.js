@@ -4,13 +4,13 @@ const fs = require('fs');
 const outputDirectory = path.resolve(__dirname, 'build/webpack');
 
 if (!fs.existsSync(outputDirectory)) {
-    fs.mkdirSync(outputDirectory, { recursive: true });
+    fs.mkdirSync(outputDirectory, {recursive: true});
 }
 module.exports = function (config) {
     config.set({
         basePath: '.',
         files: [
-            {pattern: 'src/*.ts', watched: false, served: true, included: true, type: 'ts'},
+            {pattern: 'src/*.spec.ts', watched: false, served: true, included: true},
         ],
         client: {
             jasmine: {
@@ -29,6 +29,7 @@ module.exports = function (config) {
             }
         },
         webpack: {
+            devtool: 'inline-source-map',
             output: {
                 filename: 'tests-bundle.js',
                 path: path.resolve(__dirname, outputDirectory),
@@ -62,8 +63,7 @@ module.exports = function (config) {
             }
         },
         preprocessors: {
-            //add webpack as preprocessor to support require() in test-suits .js files
             './src/*.ts': ['webpack']
-        }
+        },
     });
 };

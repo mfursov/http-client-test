@@ -2,8 +2,6 @@
   "compileOnSave": false,
   "compilerOptions": {
     "sourceRoot": "src",
-    "declaration": true,
-    "declarationDir": "declarations",
     "module": "commonjs",
     "moduleResolution": "node",
     "noImplicitAny": true,
@@ -13,7 +11,7 @@
     "sourceMap": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "target": "es6",
+    "target": "ES2022",
     "typeRoots": [
       "node_modules/@types"
     ]
