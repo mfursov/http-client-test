@@ -1,6 +1,7 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    "sourceRoot": "src",
     "declaration": true,
     "declarationDir": "declarations",
     "module": "commonjs",
