@@ -40,6 +40,9 @@ export async function httpClientPost<T>({
     if (isFetch) {
         const requestOptionHeaders = new Headers(headers);
         const requestOptions: RequestInit = {method: 'POST', headers: requestOptionHeaders, body: undefined};
+        // Axios compat settings start.
+        requestOptions.keepalive = false;
+        // Axios compat settings end.
         if (files.length) {
             const formData = new FormData();
             for (const file of files) {

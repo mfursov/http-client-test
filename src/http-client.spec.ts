@@ -5,7 +5,7 @@ const isFetch = false;
 
 function getInputTemplate(): HttpPostInput {
     return {
-        url: "http://localhost:3000",
+        url: "http://localhost:23000",
         isFetch,
         filesFieldName: '',
         files: [],
