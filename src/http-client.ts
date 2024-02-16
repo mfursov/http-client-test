@@ -60,7 +60,11 @@ export async function httpClientPost<T>({
         if (!response.ok) {
             const errorBody = await response.text();
             const errorResponse: any = tryDeserializing(errorBody);
-            const errorResponseMessage = typeof errorResponse === 'string' ? errorResponse : errorResponse['message'];
+            const errorResponseMessage =
+                errorResponse === undefined ? undefined :
+                    typeof errorResponse === 'object' && errorResponse !== null
+                        ? `${errorResponse['message']}`
+                        : `${errorResponse}`;
             throw new RpcError(response.status, response.statusText, url, errorResponseMessage);
         }
         const responseData = await response.text();
