@@ -1,7 +1,7 @@
-import {httpClientPost, HttpPostInput, RpcError} from './http-client';
+import {HttpPostInput, HttpResponse, rawSquidHttpPost as httpClientPost, RpcError} from './http-client';
 import {REQUEST_BODY_TEXT_TO_TRIGGER_ERROR_RESPONSE, RESPONSE_ERROR_TEXT} from './common';
 
-const isFetch = false;
+const isFetch = true;
 
 function getInputTemplate(): HttpPostInput {
     return {
@@ -10,10 +10,15 @@ function getInputTemplate(): HttpPostInput {
         filesFieldName: '',
         files: [],
         message: '',
-        headers: {}
+        headers: {},
+        extractErrorMessage: false,
     }
 }
 
+/**
+ * Body of the echo response contains a serialized json {body:{}, headers: {}} of the request.
+ * See echo server impl.
+ */
 interface EchoServiceResponse {
     /** Raw body string. */
     body: string;
@@ -21,13 +26,13 @@ interface EchoServiceResponse {
     headers: Record<string, string>;
 }
 
-async function post(input: HttpPostInput): Promise<EchoServiceResponse> {
-    return await httpClientPost<EchoServiceResponse>(input);
+async function post(input: HttpPostInput): Promise<HttpResponse> {
+    return await httpClientPost(input);
 }
 
 async function postBody(input: HttpPostInput): Promise<string> {
     const response = await post(input);
-    return response.body;
+    return (response.body as EchoServiceResponse).body as string;
 }
 
 describe('HTTP client', () => {
@@ -73,7 +78,7 @@ describe('HTTP client', () => {
             expect(error).toBeDefined();
             expect((error instanceof RpcError)).toBe(true);
             expect((error as RpcError).statusCode).toBe(400);
-            expect((error as RpcError).message).toBe(RESPONSE_ERROR_TEXT);
+            expect((error as RpcError).message).toBe(`{"message":"${RESPONSE_ERROR_TEXT}"}`);
         });
     });
 });
