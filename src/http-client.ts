@@ -62,8 +62,6 @@ export interface HttpResponse<BodyType = unknown> {
 export async function rawSquidHttpPost<ResponseType = unknown, RequestType = unknown>(
     input: HttpPostInput<RequestType>,
 ): Promise<HttpResponse<ResponseType>> {
-    // Native fetch is used in json request mode or when the corresponding private Squid option is enabled.
-    // This option is enabled in console-local and console-dev modes both in Web & Backend.
     const response = await (input.isFetch ? performFetchRequest(input) : await performAxiosRequest(input));
     response.body = tryDeserializing<ResponseType>(response.body as string);
     return response as HttpResponse<ResponseType>;
@@ -84,7 +82,7 @@ async function performFetchRequest({
         for (const file of files) {
             const blob = file instanceof Blob ? file : (file as BlobAndFilename).blob;
             const filename = file instanceof Blob ? undefined : (file as BlobAndFilename).name;
-            formData.append(filesFieldName, blob, filename);
+            formData.append(filesFieldName , blob, filename);
         }
         formData.append('body', serializeObj(body));
         requestOptions.body = formData;
@@ -99,7 +97,7 @@ async function performFetchRequest({
     });
     if (!response.ok) {
         const rawBody = await response.text();
-        const parsedBody: any = tryDeserializing(rawBody);
+        const parsedBody = tryDeserializing<ResponseType>(rawBody);
 
         if (!extractErrorMessage) {
             throw new RpcError(response.status, response.statusText, url, responseHeaders, parsedBody, rawBody);
@@ -107,7 +105,7 @@ async function performFetchRequest({
 
         let message;
         try {
-            message = typeof parsedBody === 'string' ? parsedBody : parsedBody['message'] || rawBody;
+            message = typeof parsedBody === 'string' ? parsedBody : parsedBody?.['message'] || rawBody;
         } catch {}
         if (!message) message = response.statusText;
         throw new RpcError(response.status, response.statusText, url, responseHeaders, parsedBody, message);
@@ -172,14 +170,14 @@ async function performAxiosRequest({
             if (!response) throw error;
             const responseHeaders = extractAxiosResponseHeaders(response);
             const rawBody = response.data as string;
-            const parsedBody: any = tryDeserializing(rawBody);
+            const parsedBody = tryDeserializing<ResponseType>(rawBody);
             if (!extractErrorMessage) {
                 throw new RpcError(response.status, response.statusText, url, responseHeaders, parsedBody, rawBody);
             }
 
             let message;
             try {
-                message = typeof parsedBody === 'string' ? parsedBody : parsedBody['message'] || rawBody;
+                message = typeof parsedBody === 'string' ? parsedBody : parsedBody?.['message'] || rawBody;
             } catch {}
             if (!message) message = response.statusText;
             throw new RpcError(response.status, response.statusText, url, responseHeaders, parsedBody, message);
