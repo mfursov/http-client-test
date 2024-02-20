@@ -44,14 +44,14 @@ async function postAndReturnRequestBody(input: HttpPostInput): Promise<string> {
 const UNIFIED_MULTIPART_BOUNDARY = '--boundary-';
 
 async function postAndReturnUnifiedRequestBody(input: HttpPostInput): Promise<string> {
-    const body = await postAndReturnRequestBody(input);
+    let body = await postAndReturnRequestBody(input);
     let unifiedBody = '';
     const lines = body.split("\n");
     for (const line of lines) {
         if (unifiedBody.length > 0) {
             unifiedBody += '\n';
         }
-        unifiedBody += line.startsWith('--axios-1.6.7-boundary-') || line.startsWith('------formdata-undici-')
+        unifiedBody += line.startsWith('--axios-1.6.7-boundary-') || line.startsWith('------formdata-undici-') || line.startsWith('------WebKitFormBoundary')
             ? UNIFIED_MULTIPART_BOUNDARY
             : line;
     }
@@ -110,8 +110,11 @@ describe('HTTP client', () => {
     describe("files and blobs", () => {
         it('single blob', async () => {
             const fileData = 'this text will be encoded as unicode';
-            const buffer = new Buffer(fileData, 'utf16le');
-            const blob: BlobAndFilename = {blob: new Blob([buffer]), name: 'blobName'};
+            const encodedData = encode(fileData);
+            const blob: BlobAndFilename = {
+                blob: new Blob([encodedData]),
+                name: 'blobName'
+            };
             input.files = [blob];
             input.filesFieldName = 'filesFieldName';
             const body = await postAndReturnUnifiedRequestBody(input);
@@ -131,10 +134,10 @@ describe('HTTP client', () => {
 
         it('multiple blobs', async () => {
             const fileData1 = 'this text will be encoded as unicode 1';
-            const buffer1 = new Buffer(fileData1, 'utf16le');
-            const blob1: BlobAndFilename = {blob: new Blob([buffer1]), name: 'blobName1'};
+            const encodedData1 = encode(fileData1);
+            const blob1: BlobAndFilename = {blob: new Blob([encodedData1]), name: 'blobName1'};
             const fileData2 = 'this text will be encoded as unicode 2';
-            const buffer2 = new Buffer(fileData2, 'utf16le');
+            const buffer2 = encode(fileData2);
             const blob2: BlobAndFilename = {blob: new Blob([buffer2]), name: 'blobName2'};
             input.files = [blob1, blob2];
             input.filesFieldName = 'filesFieldName';
@@ -159,7 +162,6 @@ describe('HTTP client', () => {
 
         })
     });
-
 });
 
 
@@ -169,3 +171,9 @@ function expectEqualStringWithBinaryCharacters(received: string, expected: strin
     const expectedEncoded = encodeURIComponent(expected);
     expect(receivedEncoded).toBe(expectedEncoded);
 }
+
+function encode(inputString: string): Uint8Array {
+    const uint16Array = new Uint16Array([...inputString].map(c => c.charCodeAt(0)));
+    return new Uint8Array(uint16Array.buffer);
+}
+
