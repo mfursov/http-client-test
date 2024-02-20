@@ -1,28 +1,46 @@
 import axios, {AxiosResponse, isAxiosError} from 'axios';
 
+class DebugLogger {
+    static debug(v: string): void {
+        if (Date.now() < 0) { // Disabled
+            console.log(v);
+        }
+    }
+}
+
 export interface BlobAndFilename {
     blob: Blob;
     name: string;
 }
 
-export class RpcError extends Error {
+export function serializeObj(obj: unknown): string | null {
+    if (obj === undefined) return null;
+    return JSON.stringify(obj);
+}
+
+function tryDeserializing<T>(text: string | undefined): T | string | undefined {
+    if (!text) return undefined;
+    return JSON.parse(text);
+}
+
+export class RpcError<BodyType = unknown> extends Error {
     /** @internal */
     constructor(
-        public readonly statusCode: number,
-        public readonly statusText: string,
-        public readonly url: string,
-        public readonly headers: Record<string, string>,
-        public readonly body?: unknown,
+        readonly statusCode: number,
+        readonly statusText: string,
+        readonly url: string,
+        readonly headers: Record<string, string>,
+        readonly body: BodyType,
         message?: string,
     ) {
         super(message || `RPC error ${statusCode} ${statusText} calling ${url}`);
     }
 }
 
-export interface HttpPostInput {
+export interface HttpPostInput<RequestBodyType = unknown> {
     url: string;
     headers: Record<string, string>;
-    message: unknown;
+    message: RequestBodyType;
     files: Array<File | BlobAndFilename>;
     filesFieldName: string;
     extractErrorMessage: boolean;
@@ -30,47 +48,35 @@ export interface HttpPostInput {
 }
 
 /** A response object with type T for the body. */
-export interface HttpResponse {
+export interface HttpResponse<BodyType = unknown> {
     status: number;
     statusText: string;
     headers: Record<string, string>;
-    body: unknown;
+    body: BodyType;
 }
 
 /**
  * Runs a post request to the given URL.
  * @internal.
  */
-export async function rawSquidHttpPost({
-                                                        url,
-                                                        headers,
-                                                        files,
-                                                        filesFieldName,
-                                                        message,
-                                                        extractErrorMessage,
-                                                        isFetch
-                                                    }: HttpPostInput): Promise<HttpResponse> {
+export async function rawSquidHttpPost<ResponseType = unknown, RequestType = unknown>(
+    input: HttpPostInput<RequestType>,
+): Promise<HttpResponse<ResponseType>> {
     // Native fetch is used in json request mode or when the corresponding private Squid option is enabled.
     // This option is enabled in console-local and console-dev modes both in Web & Backend.
-    let response: HttpResponse;
-    if (isFetch) {
-        response = await performFetchRequest(headers, files, filesFieldName, message, url, extractErrorMessage);
-    } else {
-        response = await performAxiosRequest(files, filesFieldName, message, url, headers, extractErrorMessage);
-    }
-
-    response.body = tryDeserializing(response.body as string);
-    return response;
+    const response = await (input.isFetch ? performFetchRequest(input) : await performAxiosRequest(input));
+    response.body = tryDeserializing<ResponseType>(response.body as string);
+    return response as HttpResponse<ResponseType>;
 }
 
-async function performFetchRequest<T>(
-    headers: Record<string, string>,
-    files: Array<File | BlobAndFilename>,
-    filesFieldName: string,
-    body: unknown,
-    url: string,
-    extractErrorMessage: boolean,
-): Promise<HttpResponse> {
+async function performFetchRequest({
+                                       headers,
+                                       files,
+                                       filesFieldName,
+                                       message: body,
+                                       url,
+                                       extractErrorMessage,
+                                   }: HttpPostInput): Promise<HttpResponse> {
     const requestOptionHeaders = new Headers(headers);
     const requestOptions: RequestInit = {method: 'POST', headers: requestOptionHeaders, body: undefined};
     if (files.length) {
@@ -108,6 +114,7 @@ async function performFetchRequest<T>(
     }
 
     const responseBody = await response.text();
+    DebugLogger.debug(`received response: ${JSON.stringify(responseBody)}`);
     return {
         body: responseBody,
         headers: responseHeaders,
@@ -126,14 +133,14 @@ function extractAxiosResponseHeaders(response: AxiosResponse): Record<string, st
     );
 }
 
-async function performAxiosRequest(
-    files: Array<File | BlobAndFilename>,
-    filesFieldName: string,
-    body: unknown,
-    url: string,
-    headers: Record<string, string>,
-    extractErrorMessage: boolean,
-): Promise<HttpResponse> {
+async function performAxiosRequest({
+                                       files,
+                                       filesFieldName,
+                                       message: body,
+                                       url,
+                                       headers,
+                                       extractErrorMessage,
+                                   }: HttpPostInput): Promise<HttpResponse> {
     let axiosResponse;
     try {
         if (files.length) {
@@ -182,20 +189,11 @@ async function performAxiosRequest(
     }
 
     const responseHeaders = extractAxiosResponseHeaders(axiosResponse);
+    DebugLogger.debug(`received response: ${JSON.stringify(axiosResponse.data)}`);
     return {
         body: axiosResponse.data,
         headers: responseHeaders,
         status: axiosResponse.status,
         statusText: axiosResponse.statusText,
     };
-}
-
-export function serializeObj(obj: unknown): string | null {
-    if (obj === undefined) return null;
-    return JSON.stringify(obj);
-}
-
-function tryDeserializing<T>(text: string | undefined): T | string | undefined {
-    if (!text) return undefined;
-    return JSON.parse(text);
 }
